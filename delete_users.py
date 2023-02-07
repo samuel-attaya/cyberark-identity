@@ -9,11 +9,11 @@ import cyberark_identity
 
 
 ########################################################################################################################
-main_url = ""
-tenant_id = ""
-user_name = "" #username of admin user for authentication
-csv_username_column_header = "Login Name" # column header for usernames from imported bulkImportUsersTemplate csv
-log_filename = "delete_users.log" # name of log file to output to (same folder location as delete_users.py)
+main_url = "https://example.id.cyberark.cloud"
+tenant_id = "example"
+user_name = "user@domain" # username of admin user for authentication
+csv_username_column_header = "Login Name" # column header for usernames from imported bulkImportUsersTemplate.csv
+log_filename = "delete_users.log" # name of log file to output to (output to same folder location as delete_users.py)
 ########################################################################################################################
 
 
