@@ -31,48 +31,67 @@ token_session = requests.Session()
 cyberark_identity.identity_api_auth(main_url, tenant_id, user_name, user_password, token_session)
 
 
-# define array of usernames to look up user details for
-user_details_array = []
+# define array of usernames to validate that username exists in Identity tenant
+user_validate_array = []
 
 # read in "bulkImportUsersTemplate" csv
 print()
 print("Please select bulkImportUsersTemplate csv to import from popup file browser:")
 Tk().withdraw()
 csv_filepath = askopenfilename()
-logging.debug("Imported bulkImportUsersTemplate csv path: " + csv_filepath)
+logging.info("Imported bulkImportUsersTemplate csv path: " + csv_filepath)
 
 with open(csv_filepath, 'r') as f:
     csv_reader = csv.DictReader(f)
 
     for line in csv_reader:
         csv_username = line[csv_username_column_header]
-        user_details_array.append(csv_username)
+        user_validate_array.append(csv_username)
 
 
-# define empty user delete array for adding each valid user's username
+# return list of all tenant usernames (up to 100,000 users returned inquery)
+user_list_url = main_url + "/RedRock/query"
+
+user_list_payload = {
+    "Script": "@@All Users",
+    "Args": {
+        "PageNumber":1,
+        "PageSize":100000,
+        "Limit":100000,
+        "SortBy":"Username",
+        "Ascending":True,
+        "Direction":"ASC",
+        "Caching":-1
+    }
+}
+user_list_headers = {
+    "accept": "*/*",
+    "content-type": "application/json",
+    "X-IDAP-NATIVE-CLIENT": "1" # this header is required, otherwise you get 401 error
+}
+
+user_list_response = token_session.post(user_list_url, json=user_list_payload, headers=user_list_headers)
+user_list_response_json = user_list_response.json()
+user_list_objects = user_list_response_json['Result']['Results']
+
+user_list_username_array = []
+
+for x in user_list_objects:
+    object_username = x['Row']['Username']
+    user_list_username_array.append(object_username)
+
+
+# define empty user delete array for all valid usernames
 user_delete_array = []
 
-# Get user details by name (check that each user exists to delete)
-for x in user_details_array:
-    user_details_url = main_url + "/CDirectoryService/GetUserByName"
-
-    user_details_payload = {"username": x}
-    user_details_headers = {
-        "accept": "*/*",
-        "content-type": "application/json",
-        "X-IDAP-NATIVE-CLIENT": "1" # this header is required, otherwise you get 401 error
-    }
-
-    user_details_response = token_session.post(user_details_url, json=user_details_payload, headers=user_details_headers)
-    user_details_response_json = user_details_response.json()
-
-    # only add user id for users that exist
-    if user_details_response_json['success'] == True:
-        logging.debug(f"Successfully retrieved the following user: {x}")
+# validate all usernames imported from csv against API user list for tenant
+for x in user_validate_array:
+    if x in user_list_username_array:
+        logging.info(f"Successfully retrieved the following user: {x}")
         user_delete_array.append(x)
 
     else:
-        logging.debug(f"Unable to retrieve the following user: {x}, unable to delete user")
+        logging.info(f"Unable to retrieve the following user: {x}, unable to delete user")
 
 
 # Delete all users in user_delete_array
@@ -89,7 +108,7 @@ for x in user_delete_array:
     user_delete_response_json = user_delete_response.json()
 
     if user_delete_response_json['success'] == True:
-        logging.debug(f"Successfully deleted the following user: {x}")
+        logging.info(f"Successfully deleted the following user: {x}")
 
     else:
         logging.debug(f"Unable to delete the following user: {x}")

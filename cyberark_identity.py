@@ -43,7 +43,7 @@ def identity_api_auth(url, tenant, username, password, session):
     auth_response = session.post(auth_url, json=auth_payload, headers=auth_headers)
     auth_response_json = auth_response.json()
 
-    logging.debug(f"Outcome of start authentication call for {username}: " + str(auth_response_json['success']))
+    logging.info(f"Outcome of start authentication call for {username}: " + str(auth_response_json['success']))
     session_id = auth_response.json()['Result']['SessionId']
 
     # identify MechanismId for UP (user/pass) auth mechanism (in first challenge)
@@ -71,7 +71,7 @@ def identity_api_auth(url, tenant, username, password, session):
 
     advance_response = session.post(advance_url, json=advance_payload, headers=advance_headers)
     advance_response_json = advance_response.json()
-    logging.debug(f"Outcome of advance authentication call for {username}: " + str(advance_response_json['success']))
+    logging.info(f"Outcome of advance authentication call for {username}: " + str(advance_response_json['success']))
 
 
     # MFA if necessary
@@ -111,7 +111,7 @@ def identity_api_auth(url, tenant, username, password, session):
         mfa_advance_response = session.post(mfa_advance_url, json=mfa_advance_payload, headers=mfa_advance_headers)
 
         mfa_advance_response_json = mfa_advance_response.json()
-        logging.debug(f"Outcome of MFA advance authentication call for {username}: " + str(mfa_advance_response_json['success']))
+        logging.info(f"Outcome of MFA advance authentication call for {username}: " + str(mfa_advance_response_json['success']))
 
         input("Press enter once MFA challenge completed")
 
@@ -134,9 +134,9 @@ def identity_api_auth(url, tenant, username, password, session):
         mfa_poll_response = session.post(mfa_poll_url, json=mfa_poll_payload, headers=mfa_poll_headers)
 
         mfa_poll_response_json = mfa_poll_response.json()
-        logging.debug(f"Outcome of MFA poll call for {username}: " + str(mfa_poll_response_json['success']))
+        logging.info(f"Outcome of MFA poll call for {username}: " + str(mfa_poll_response_json['success']))
 
     else:
-        logging.debug("No MFA required, skipping")
+        logging.info("No MFA required, skipping")
 
 
