@@ -53,7 +53,7 @@ def identity_api_auth(url, tenant, username, password, session):
             mechanism_id = element['MechanismId']
 
 
-    # Advance authentication
+    # Advance initial authentication
     advance_url = url + "/Security/AdvanceAuthentication"
 
     advance_payload = {
@@ -74,7 +74,12 @@ def identity_api_auth(url, tenant, username, password, session):
     logging.info(f"Outcome of advance authentication call for {username}: " + str(advance_response_json['success']))
 
 
-    # MFA if necessary
+    # MFA if required for user
+
+    # define answerable vs unanswerable MFA mechanisms
+    mfa_answerable = ["EMAIL", "SMS", "OATH", "OTP", "U2F"]
+    #mfa_unanswerable = ["PF", "QR"]
+
     if len(auth_response.json()['Result']['Challenges']) > 1:
 
         # find all MFA options in second challenge:
@@ -113,28 +118,55 @@ def identity_api_auth(url, tenant, username, password, session):
         mfa_advance_response_json = mfa_advance_response.json()
         logging.info(f"Outcome of MFA advance authentication call for {username}: " + str(mfa_advance_response_json['success']))
 
-        input("Press enter once MFA challenge completed")
+
+        if mfa_mechanism in mfa_answerable:
+            mfa_answer = str(input(f"Please input {mfa_mechanism} MFA challenge answer: "))
+
+            mfa_answer_url = url + "/Security/AdvanceAuthentication"
+
+            mfa_answer_payload = {
+                "TenantId": tenant,
+                "Action": "Answer",
+                "SessionId": session_id,
+                "PersistentLogin": True,
+                "MechanismId": mfa_mechanism_id,
+                "Answer": mfa_answer
+            }
+            mfa_answer_headers = {
+                "accept": "*/*",
+                "content-type": "application/json"
+            }
+
+            mfa_answer_response = session.post(mfa_answer_url, json=mfa_answer_payload, headers=mfa_answer_headers)
+
+            mfa_answer_response_json = mfa_answer_response.json()
+            logging.info(f"Outcome of MFA advance answer call for {username}: " + str(
+                mfa_answer_response_json['success']))
 
 
-        # Poll MFA Advance authentication
-        mfa_poll_url = url + "/Security/AdvanceAuthentication"
+        # pause script if required to complete unanswerable MFA mechanism
+        else:
+            input(f"Press 'enter' once {mfa_mechanism} MFA challenge completed")
 
-        mfa_poll_payload = {
-            "TenantId": tenant,
-            "Action": "Poll",
-            "SessionId": session_id,
-            "PersistentLogin": True,
-            "MechanismId": mfa_mechanism_id
-        }
-        mfa_poll_headers = {
-            "accept": "*/*",
-            "content-type": "application/json"
-        }
+            # Poll MFA Advance authentication to receive session auth token - polling only required if not answering MFA in script (e.g. clicking auth link in email)
+            mfa_poll_url = url + "/Security/AdvanceAuthentication"
 
-        mfa_poll_response = session.post(mfa_poll_url, json=mfa_poll_payload, headers=mfa_poll_headers)
+            mfa_poll_payload = {
+                "TenantId": tenant,
+                "Action": "Poll",
+                "SessionId": session_id,
+                "PersistentLogin": True,
+                "MechanismId": mfa_mechanism_id
+            }
+            mfa_poll_headers = {
+                "accept": "*/*",
+                "content-type": "application/json"
+            }
 
-        mfa_poll_response_json = mfa_poll_response.json()
-        logging.info(f"Outcome of MFA poll call for {username}: " + str(mfa_poll_response_json['success']))
+            mfa_poll_response = session.post(mfa_poll_url, json=mfa_poll_payload, headers=mfa_poll_headers)
+
+            mfa_poll_response_json = mfa_poll_response.json()
+            logging.info(f"Outcome of MFA poll call for {username}: " + str(mfa_poll_response_json['success']))
 
     else:
         logging.info("No MFA required, skipping")
